@@ -1,6 +1,6 @@
 import { db, requireUser, requireAdmin, ApiError } from '@/lib/supabase';
 import { body, failure, ok, queryError } from '@/lib/response';
-import { credentials, quiz, question, submission, payment } from '@/lib/schemas';
+import { credentials, loginCredentials, quiz, question, submission, payment } from '@/lib/schemas';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 type Ctx = {params:Promise<{path:string[]}>};
@@ -10,7 +10,7 @@ async function endpoint(method:Method, req:Request,ctx:Ctx) {
  const [a,b,c,d]=(await ctx.params).path;
  if(a==='health'&&!b&&method==='GET') return ok({status:'ok'});
  if(a==='auth'&&!c&&method==='POST'&&(b==='register'||b==='login')){
- const input=credentials.parse(await body(req));const client=db();
+ const input=(b==='register'?credentials:loginCredentials).parse(await body(req));const client=db();
  if(b==='register'){const {data,error}=await client.auth.signUp(input);if(error)throw new ApiError(400,error.message);return ok({user_id:data.user?.id,confirmation_required:!data.session},201);}
  const {data,error}=await client.auth.signInWithPassword(input);if(error||!data.session)throw new ApiError(401,'Invalid credentials');return ok({access_token:data.session.access_token,refresh_token:data.session.refresh_token,expires_at:data.session.expires_at});
  }
