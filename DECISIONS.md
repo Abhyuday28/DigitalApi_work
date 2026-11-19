@@ -3,7 +3,7 @@
 **Project:** DigitalAPI Quiz API  
 **Stack:** Next.js (App Router), TypeScript, Supabase Auth/PostgreSQL, Google Cloud Run, DigitalAPI Gateway  
 **Decision status:** Accepted for the assignment prototype; production hardening still open  
-**Last updated:** 17 November 2026
+**Last updated:** 19 November 2026
 
 > This file records why the system is built this way, what has actually been checked, and what still needs work. It is not a claim that every feature has passed an end-to-end test.
 
@@ -222,3 +222,64 @@ This is the planned demo, **not** a record of a completed demo.
 ---
 
 **Maintenance rule:** When a decision changes, update its section and record the reason. When a checklist item is checked, keep a link to the test output, commit, deployment, or screenshot that demonstrates it.
+
+
+## 8. Decisions and verification update — 19 November 2026
+
+This update records the behavior added and tested after the earlier status above. Where an earlier checklist or statement conflicts with this dated update, use the newer evidence here and in `README.md`.
+
+### D-09 — A user may enter a given quiz only once, ever
+
+**Decision:** Enforce one quiz entry per user per quiz, regardless of whether the previous attempt passed or failed. A retry after a failed or completed attempt is not allowed.
+
+**Implementation:** Migration `supabase/migrations/20261119060000_one_attempt_per_quiz.sql` creates `public.quiz_entries` with a primary key on `(user_id, quiz_id)` and seeds it from historical attempts. The `enter_quiz` database function claims the entry before deducting credits. The unique constraint rejects a duplicate, including concurrent attempts to enter the same quiz. Entry claim, stake debit, attempt creation and ledger transaction are part of the same database transaction.
+
+**Reason:** A per-attempt submission idempotency check alone does not stop a user creating a new attempt for the same quiz. A database uniqueness constraint is the authoritative guard and avoids a race-prone application-only check.
+
+**Observed:** The migration was applied in the target Supabase SQL Editor and committed as `8f81423` (`Enforce one quiz attempt per user`). Duplicate entry was rejected and the wallet balance remained 510 credits. The concurrency guarantee follows from the database unique constraint and transaction design; a dedicated concurrent-request stress test remains pending.
+
+### D-10 — Validate identifier formats before database lookups
+
+**Decision:** Validate route path identifiers as UUIDs before querying or mutating records. Malformed quiz, question or attempt identifiers should produce HTTP `400`, not a database cast error or generic `500`.
+
+**Implementation:** UUID validation is applied to quiz detail and entry routes, attempt submission, and admin quiz/question update, delete and question-creation routes.
+
+**Observed:** A malformed quiz UUID sent to the deployed production API returned HTTP `400`. Invalid question UUID, invalid attempt UUID and the remaining admin-route malformed-ID cases are not yet confirmed by reported production test results.
+
+### D-11 — Keep admin authorization server-side
+
+**Decision:** Admin operations continue to require `profiles.role = 'admin'`; a normal authenticated user must not be able to create or manage quizzes/questions.
+
+**Observed:** A normal user's request to create an admin quiz returned HTTP `403` with `Admin role required`. This confirms that tested route, not every admin route individually.
+
+## 9. Updated verification record
+
+### Passed and observed
+
+- Registration and login; email confirmation was required for the test account before login succeeded.
+- Admin quiz creation and question creation.
+- Published quiz listing and quiz detail response; correct answer indices were not exposed in public quiz details.
+- Quiz entry and stake deduction.
+- Correct-answer attempt passed and credited the configured reward.
+- Incorrect-answer attempt failed without a reward.
+- Duplicate answer submission did not issue a second reward.
+- One-entry-per-user-per-quiz rule rejected a duplicate entry without another wallet debit.
+- Wallet balance and transaction history were read; balance remained 510 after duplicate-entry rejection.
+- Ordinary user was denied admin quiz creation with HTTP 403.
+- TypeScript check and production build passed.
+- Updated Cloud Run revision deployed in `asia-south1`.
+- Production malformed quiz UUID returned HTTP 400.
+
+### Still pending
+
+- Explicit unauthenticated protected endpoint check (expected 401).
+- Invalid question UUID, invalid attempt UUID and all remaining malformed admin-ID route checks.
+- Cross-user attempt ownership test (expected denial).
+- Insufficient wallet balance behavior.
+- Concurrent duplicate-entry integration test.
+- Unpublished quiz entry behavior.
+- DigitalAPI gateway end-to-end request and Developer Portal publication.
+- Investigation of the additional test attempt reference found in wallet transaction history.
+- Full regression and production security review.
+
+**Evidence discipline:** Do not mark a pending item complete based solely on implementation or expected behavior. Keep credentials and bearer tokens out of Git history, logs and screenshots. The project remains an assignment prototype and is not represented as production-certified.
