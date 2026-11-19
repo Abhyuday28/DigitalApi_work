@@ -4,7 +4,7 @@ A REST API for quiz participation, scoring, and a credit wallet. Users register,
 
 Built for the DigitalAPI assignment with **Next.js, TypeScript, Supabase PostgreSQL/Auth, Docker, Google Cloud Run, and DigitalAPI Gateway**.
 
-> **Current state (17 Nov 2026):** The Next.js backend is deployed to Cloud Run; the health and OpenAPI endpoints returned successful responses from Google Cloud Shell. DigitalAPI imported 17 routes and deployed revision `r1` to `test`, but gateway testing returned `404 Route Not Found`. The imported API's upstream was found pointing at a sample host, not the Cloud Run service. A corrected gateway response and full Supabase database workflow have **not yet been verified**. This is a deployed **assignment prototype**, not a production-certified service.
+> **Current state (19 Nov 2026):** Cloud Run deployment and direct API checks are verified. Registration/login, admin authorization, quiz creation, public quiz response filtering, successful and failed attempts, wallet ledger behavior, duplicate submission handling, and one-attempt-per-user-per-quiz behavior have been exercised. A malformed quiz UUID returned HTTP `400` in production. The DigitalAPI gateway end-to-end route and several security/edge cases remain pending. This is an assignment prototype, not a production-certified service.
 
 ## Live links
 
@@ -17,7 +17,7 @@ Built for the DigitalAPI assignment with **Next.js, TypeScript, Supabase Postgre
 | Supabase dashboard | [Project dashboard](https://supabase.com/dashboard/project/alffxumdnxfbpthzifoq) | Project targeted by app; schema/data still require independent verification |
 | Supabase SQL editor | [SQL editor](https://supabase.com/dashboard/project/alffxumdnxfbpthzifoq/sql) | Apply/review migration here |
 | DigitalAPI trial console | [trial.digitalapi.ai](https://trial.digitalapi.ai) | API imported; gateway routing still under investigation |
-| GitHub implementation | [feat/nextjs-supabase-quiz-api](https://github.com/Abhyuday28/DigitalApi_work/tree/feat/nextjs-supabase-quiz-api) | Working branch; not yet merged into `main` |
+| GitHub implementation | [fix/api-contract-and-login-validation](https://github.com/Abhyuday28/DigitalApi_work/tree/fix/api-contract-and-login-validation) | Current working branch; migration commit `8f81423` is pushed |
 | Engineering decisions | [DECISIONS.md](./DECISIONS.md) | Detailed rationale, limitations and release checklist |
 
 **Cloud Run URL note:** Deployment output also displayed `https://digitalapi-quiz-608691584440.asia-south1.run.app`. Google Cloud Shell's `gcloud run services describe ... --format='value(status.url)'` returned the `qfysxyx6qa-el.a.run.app` address above; use that verified service URL consistently. These are backend URLs, **not** a confirmed DigitalAPI public gateway URL.
@@ -369,3 +369,38 @@ For trade-offs, limitations, and the planned end-to-end demo, see **[DECISIONS.m
 ---
 
 **Maintainer note:** Update the checklist only after saving proof (test output, deployed URL, Gateway response, or screenshots). Never put a live access token, service-role key, or Secret Manager payload in this README or in a public commit.
+
+
+## Verified implementation update — 19 November 2026
+
+This section supersedes older verification notes above where they conflict.
+
+### Additional safeguards and business rules
+
+- **One attempt per user per quiz, ever.** The database migration `supabase/migrations/20261119060000_one_attempt_per_quiz.sql` adds `public.quiz_entries` with a unique primary key on `(user_id, quiz_id)`, and seeds it from historical attempts. The `enter_quiz` database function claims that unique entry before deducting the stake. A second entry is rejected, including after a failed or passed attempt.
+- Entry, stake deduction, attempt creation, and the corresponding transaction are performed within the database function's transaction. The unique constraint is the concurrency guard against a second entry.
+- **UUID path validation** was added for quiz, question, and attempt identifiers in the API route. A malformed quiz ID was tested through the production API and returned HTTP `400` rather than an internal-server error.
+- **Admin authorization** is enforced using the user's `profiles.role`. A normal user attempting admin quiz creation received HTTP `403` with `Admin role required`.
+
+### Verified behavior
+
+- Registration and login worked; email confirmation was required for the test account before login succeeded.
+- Admin quiz and question creation worked.
+- Published quiz listing and quiz detail responses worked; public quiz details omitted `correct_index`.
+- Quiz entry deducted the stake; a correct answer passed and credited the reward; an incorrect answer failed without a reward.
+- Repeated submission did not issue a second reward.
+- Wallet balance and transaction history were checked; after duplicate-entry rejection the balance remained unchanged at 510 credits.
+- The production build and TypeScript checks passed, and the updated Cloud Run service was deployed in `asia-south1`.
+
+### Still pending — do not treat as passed
+
+- Unauthenticated protected-route response verification.
+- Invalid question UUID and invalid attempt UUID production checks.
+- Cross-user attempt ownership checks.
+- Insufficient-wallet-balance behavior.
+- Concurrent duplicate-entry test.
+- Entry into an unpublished quiz.
+- DigitalAPI gateway end-to-end routing and Developer Portal publication.
+- Investigation of an additional historical/test attempt reference noted during wallet-ledger review.
+
+The migration was committed as `8f81423` (`Enforce one quiz attempt per user`) and applied in the target Supabase SQL Editor. Do not expose access tokens, passwords, or Supabase service-role credentials in documentation.
