@@ -1,1 +1,5 @@
-export default function Home() { return <main><h1>DigitalAPI Quiz REST API</h1><p>Next.js + Supabase backend</p><p><a href="/api/openapi.json">OpenAPI schema</a> · <a href="/api/v1/health">Health check</a></p><p>Send Authorization: Bearer &lt;access_token&gt; to protected endpoints.</p></main> }
+import QuizDashboard from "./quiz-dashboard";
+
+export default function Home() {
+  return <QuizDashboard />;
+}
