@@ -222,3 +222,62 @@ This is the planned demo, **not** a record of a completed demo.
 ---
 
 **Maintenance rule:** When a decision changes, update its section and record the reason. When a checklist item is checked, keep a link to the test output, commit, deployment, or screenshot that demonstrates it.
+
+
+## 8. Changes recorded after the initial decision log (17 November 2026)
+
+The following changes are present on `main` after the original decision-log commit. They describe repository/code changes; they do **not** imply that the corresponding live workflows have passed.
+
+### D-09 — Separate registration and login validation
+
+**Decision:** Keep a stricter password policy for account creation, but validate sign-in with a non-empty password rather than reapplying the registration minimum/maximum length rules.
+
+**Implementation:** `src/lib/schemas.ts` defines `credentials` for registration (valid email, password length 8–72) and `loginCredentials` for login (valid email, non-empty password). The auth route selects the schema based on whether the request is `register` or `login`.
+
+**Why:** Existing accounts should be able to sign in with their already-established credentials; login should not silently inherit new-account password policy. Registration policy remains enforced at signup.
+
+**Evidence:** Merged PR #4, commit `43e74f55e1084d4d23bb19d14d8e2becfbccf3dc`, changes `src/lib/schemas.ts` and `src/app/api/v1/[...path]/route.ts`.
+
+### D-10 — Make the OpenAPI request contract useful to DigitalAPI
+
+**Decision:** Replace generic request-body objects with endpoint-specific JSON schemas in the generated OpenAPI 3.1 document.
+
+**Implementation:** `src/app/api/openapi.json/route.ts` now describes credentials, quiz creation/update, question creation/update, answer submissions and mock-credit purchases. It also documents bearer security, endpoint tags, success response codes (including 201 for creation), and common 400/401/403/404/409/500 responses. The contract version is 0.2.0. Zod remains the authoritative runtime validation layer.
+
+**Why:** An API tester and a consumer importing the OpenAPI document need to know the fields, types, constraints and authentication expected by each endpoint; a generic object schema does not provide enough information to build valid requests.
+
+**Important limitation:** This improves the documented contract; it does not prove that DigitalAPI's upstream configuration, gateway routing, header forwarding or all endpoint behavior works. Re-import/redeploy the spec and test through the actual invocation URL before marking gateway verification complete.
+
+**Evidence:** Merged PR #4, commit `43e74f55e1084d4d23bb19d14d8e2becfbccf3dc`, changes `src/app/api/openapi.json/route.ts`.
+
+### D-11 — Add a non-destructive API smoke-test script
+
+**Decision:** Provide a reusable read-only smoke test for deployed endpoints, with optional authenticated and gateway checks.
+
+**Implementation:** `scripts/smoke-test.mjs` checks Cloud Run health, OpenAPI availability/shape and that the wallet endpoint rejects requests without a bearer token. When `TEST_ACCESS_TOKEN` is supplied, it additionally checks authenticated wallet balance, transaction history and quiz listing. When `GATEWAY_BASE_URL` is supplied, it checks gateway health and protected-route behavior. It writes a local `smoke-results.json` report and exits non-zero if a performed check fails.
+
+**Safety boundary:** The script does not register users, create quizzes, enter attempts, submit answers or change credits. Authenticated checks are read-only. Gateway and authenticated checks are skipped unless their environment variables are supplied.
+
+**Evidence:** `scripts/smoke-test.mjs` is present on `main`; the repository change set after the initial decision-log commit includes the script. This document does not record a successful execution of the script.
+
+### D-12 — Expand operational and submission guidance
+
+**Decision:** Keep demo narration, verification tasks and submission placeholders in separate documentation rather than treating planned actions as completed proof.
+
+**Implementation:** The repository now includes `docs/DEMO_SCRIPT.md`, `docs/FINAL_VERIFICATION.md` and `docs/README_SUBMISSION_ADDENDUM.md`. These distinguish reported earlier deployment checks from outstanding live verification and explicitly leave the public gateway invocation URL and final test evidence to be recorded only after confirmation.
+
+**Evidence:** These files are present on `main`. Review them alongside this decision log before a final demo or submission.
+
+## 9. Evidence status after these changes
+
+- [x] Login now has a separate validation schema from registration (code merged).
+- [x] OpenAPI request bodies are endpoint-specific rather than generic (code merged).
+- [x] A read-only smoke-test script is included (script committed).
+- [x] Demo, verification and submission guidance is included (documentation committed).
+- [ ] Run the smoke test against the current Cloud Run revision and retain its output.
+- [ ] Confirm the deployed OpenAPI document reflects version 0.2.0 and re-import/redeploy it in DigitalAPI if needed.
+- [ ] Replace any sample gateway upstream with the actual Cloud Run host; verify health, auth-header forwarding and protected routes through the actual gateway invocation URL.
+- [ ] Run authenticated quiz/wallet integration scenarios against the intended Supabase project, including stake, pass/fail settlement, idempotent retries and concurrency.
+- [ ] Verify current dependency audit and deployment secrets; the repository changes above do not establish either result.
+
+**History note:** PR #4 was merged into `main` on 17 November 2026. The merge commit is `cea803cd2a7c6853a2c5b8117073d4f3ce5ea139`. The PR description explicitly states that Cloud Run deployment/integration tests were not run as part of that change and that the Supabase target project was not available through the connected Supabase account. Therefore no live gateway or complete credit-workflow checklist item has been newly marked complete here.
