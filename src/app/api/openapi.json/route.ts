@@ -27,6 +27,7 @@ add('get','/api/v1/quizzes','List published quizzes');
 add('get','/api/v1/quizzes/{id}','Get quiz questions (correct answers hidden)');
 add('post','/api/v1/quizzes/{id}/enter','Stake credits to enter quiz',{success:201});
 add('post','/api/v1/attempts/{id}/submit','Submit answers and settle reward',{schema:answersSchema});
+add('get','/api/v1/attempts/{id}/review','Review a submitted attempt with selected and correct answers');
 add('get','/api/v1/wallet/balance','Current credit balance');
 add('get','/api/v1/wallet/transactions','Credit transaction history');
 add('post','/api/v1/payments/mock','Mock credit purchase',{schema:paymentSchema,success:201});
