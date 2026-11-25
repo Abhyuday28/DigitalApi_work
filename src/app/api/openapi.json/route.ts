@@ -26,6 +26,7 @@ add('post','/api/v1/auth/login','Log in and receive bearer access token',{auth:f
 add('get','/api/v1/quizzes','List published quizzes');
 add('get','/api/v1/quizzes/{id}','Get quiz questions (correct answers hidden)');
 add('post','/api/v1/quizzes/{id}/enter','Stake credits to enter quiz',{success:201});
+add('get','/api/v1/attempts','List the authenticated user’s quiz attempts');
 add('post','/api/v1/attempts/{id}/submit','Submit answers and settle reward',{schema:answersSchema});
 add('get','/api/v1/attempts/{id}/review','Review a submitted attempt with selected and correct answers');
 add('get','/api/v1/wallet/balance','Current credit balance');
