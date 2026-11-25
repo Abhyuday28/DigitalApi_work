@@ -17,6 +17,20 @@ async function endpoint(method:Method, req:Request,ctx:Ctx) {
  if(a==='quizzes'&&!b&&method==='GET'){const {client}=await requireUser(req);const {data,error}=await client.from('quizzes').select('id,title,description,stake,reward,pass_percentage,created_at').eq('published',true).order('created_at',{ascending:false});queryError(error);return ok(data);}
  if(a==='quizzes'&&b&&!c&&method==='GET'){const {client}=await requireUser(req);const {data:q,error:e}=await client.from('quizzes').select('id,title,description,stake,reward,pass_percentage').eq('id',b).eq('published',true).maybeSingle();queryError(e);if(!q)throw new ApiError(404,'Quiz not found');const {data:questions,error}=await client.from('questions').select('id,prompt,options').eq('quiz_id',b).order('created_at');queryError(error);return ok({...q,questions});}
  if(a==='quizzes'&&b&&c==='enter'&&!d&&method==='POST'){const {client,user}=await requireUser(req);const {data,error}=await client.rpc('enter_quiz',{p_user:user.id,p_quiz:b});queryError(error);return ok(data,201);}
+ if(a==='attempts'&&!b&&method==='GET'){
+  const {client,user}=await requireUser(req);
+  const {data:attempts,error}=await client.from('attempts')
+   .select('id,quiz_id,status,score,question_count,created_at,submitted_at,stake,reward')
+   .eq('user_id',user.id).order('created_at',{ascending:false}).limit(100);
+  queryError(error);
+  const quizIds=[...new Set((attempts??[]).map(item=>item.quiz_id))];
+  const {data:quizzes,error:quizzesError}=quizIds.length
+   ?await client.from('quizzes').select('id,title').in('id',quizIds)
+   :{data:[],error:null};
+  queryError(quizzesError);
+  const quizTitles=new Map((quizzes??[]).map(item=>[item.id,item.title]));
+  return ok((attempts??[]).map(item=>({...item,quiz_title:quizTitles.get(item.quiz_id)??null})));
+ }
  if(a==='attempts'&&b&&c==='submit'&&!d&&method==='POST'){const input=submission.parse(await body(req));const {client,user}=await requireUser(req);const {data,error}=await client.rpc('submit_quiz',{p_user:user.id,p_attempt:b,p_answers:input.answers});queryError(error);return ok(data);}
  if(a==='attempts'&&b&&c==='review'&&!d&&method==='GET'){
   const {client,user}=await requireUser(req);
