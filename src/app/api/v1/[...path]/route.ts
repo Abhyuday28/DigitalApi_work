@@ -18,6 +18,44 @@ async function endpoint(method:Method, req:Request,ctx:Ctx) {
  if(a==='quizzes'&&b&&!c&&method==='GET'){const {client}=await requireUser(req);const {data:q,error:e}=await client.from('quizzes').select('id,title,description,stake,reward,pass_percentage').eq('id',b).eq('published',true).maybeSingle();queryError(e);if(!q)throw new ApiError(404,'Quiz not found');const {data:questions,error}=await client.from('questions').select('id,prompt,options').eq('quiz_id',b).order('created_at');queryError(error);return ok({...q,questions});}
  if(a==='quizzes'&&b&&c==='enter'&&!d&&method==='POST'){const {client,user}=await requireUser(req);const {data,error}=await client.rpc('enter_quiz',{p_user:user.id,p_quiz:b});queryError(error);return ok(data,201);}
  if(a==='attempts'&&b&&c==='submit'&&!d&&method==='POST'){const input=submission.parse(await body(req));const {client,user}=await requireUser(req);const {data,error}=await client.rpc('submit_quiz',{p_user:user.id,p_attempt:b,p_answers:input.answers});queryError(error);return ok(data);}
+ if(a==='attempts'&&b&&c==='review'&&!d&&method==='GET'){
+  const {client,user}=await requireUser(req);
+  const {data:attempt,error:attemptError}=await client.from('attempts')
+   .select('id,quiz_id,status,score,question_count,answers,created_at,submitted_at,stake,reward,pass_percentage')
+   .eq('id',b).eq('user_id',user.id).maybeSingle();
+  queryError(attemptError);
+  if(!attempt)throw new ApiError(404,'Attempt not found');
+  if(attempt.status==='started'||!attempt.answers)throw new ApiError(409,'Quiz attempt has not been submitted yet');
+  const {data:quizData,error:quizError}=await client.from('quizzes')
+   .select('id,title').eq('id',attempt.quiz_id).maybeSingle();
+  queryError(quizError);
+  const {data:questions,error:questionsError}=await client.from('questions')
+   .select('id,prompt,options,correct_index').eq('quiz_id',attempt.quiz_id).order('created_at');
+  queryError(questionsError);
+  const submittedAnswers=(attempt.answers??{}) as Record<string,number>;
+  const reviewedQuestions=(questions??[]).map((item)=>{
+   const hasAnswer=Object.prototype.hasOwnProperty.call(submittedAnswers,item.id);
+   const selectedIndex=hasAnswer?submittedAnswers[item.id]:null;
+   const selectedIsValid=typeof selectedIndex==='number'&&Number.isInteger(selectedIndex)&&selectedIndex>=0&&selectedIndex<item.options.length;
+   const isCorrect=selectedIsValid&&selectedIndex===item.correct_index;
+   return {
+    question_id:item.id,prompt:item.prompt,options:item.options,
+    selected_answer_index:selectedIndex,
+    selected_answer:selectedIsValid?item.options[selectedIndex]:null,
+    correct_answer_index:item.correct_index,
+    correct_answer:item.options[item.correct_index],
+    is_correct:isCorrect,unanswered:!hasAnswer
+   };
+  });
+  const correctCount=reviewedQuestions.filter(item=>item.is_correct).length;
+  return ok({
+   attempt_id:attempt.id,quiz_id:attempt.quiz_id,quiz_title:quizData?.title??null,
+   status:attempt.status,score:attempt.score,correct:correctCount,
+   total:reviewedQuestions.length,pass_percentage:attempt.pass_percentage,
+   stake:attempt.stake,reward:attempt.reward,created_at:attempt.created_at,
+   submitted_at:attempt.submitted_at,questions:reviewedQuestions
+  });
+ }
  if(a==='wallet'&&b==='balance'&&!c&&method==='GET'){const {client,user}=await requireUser(req);const {data,error}=await client.from('wallets').select('balance').eq('user_id',user.id).single();queryError(error);return ok(data);}
  if(a==='wallet'&&b==='transactions'&&!c&&method==='GET'){const {client,user}=await requireUser(req);const {data,error}=await client.from('credit_transactions').select('id,amount,kind,balance_after,created_at,reference_id').eq('user_id',user.id).order('created_at',{ascending:false}).limit(100);queryError(error);return ok(data);}
  if(a==='payments'&&b==='mock'&&!c&&method==='POST'){const input=payment.parse(await body(req));const {client,user}=await requireUser(req);const {data,error}=await client.rpc('mock_purchase',{p_user:user.id,p_amount:input.amount,p_key:input.idempotency_key});queryError(error);return ok(data,201);}
