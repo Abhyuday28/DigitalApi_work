@@ -81,6 +81,7 @@ All routes below are relative to the Cloud Run base URL. **Protected** endpoints
 | GET | `/api/v1/quizzes/{id}` | User | Quiz and questions (answers hidden) |
 | POST | `/api/v1/quizzes/{id}/enter` | User | Stake credits and start attempt |
 | POST | `/api/v1/attempts/{id}/submit` | User | Submit answers and settle result |
+| GET | `/api/v1/attempts/{id}/review` | User | Review submitted answers against correct answers |
 | GET | `/api/v1/wallet/balance` | User | Current balance |
 | GET | `/api/v1/wallet/transactions` | User | Latest 100 credit transactions |
 | POST | `/api/v1/payments/mock` | User | Add mock credits with idempotency key |
@@ -91,6 +92,8 @@ All routes below are relative to the Cloud Run base URL. **Protected** endpoints
 | POST | `/api/v1/admin/quizzes/{id}/questions` | Admin | Add a question |
 | PATCH | `/api/v1/admin/questions/{id}` | Admin | Update question |
 | DELETE | `/api/v1/admin/questions/{id}` | Admin | Delete question |
+
+**Attempt review:** `GET /api/v1/attempts/{id}/review` returns each question, selected answer, correct answer, correctness, and unanswered status. It only returns an attempt belonging to the authenticated user and rejects attempts that have not been submitted. The route is an API capability; the repository's `/` page remains a minimal API landing page, so a separate frontend screen is still needed to display the review visually.
 
 **API format:** Successful responses use `{"data": ...}`; errors use an `error` field. Protected endpoints without a bearer token return `401`. Registration may require email confirmation based on Supabase Auth settings. The current OpenAPI document lists the routes, but its request/response schemas are generic and still need expansion.
 
