@@ -38,10 +38,11 @@ async function endpoint(method:Method, req:Request,ctx:Ctx) {
    const selectedIndex=hasAnswer?submittedAnswers[item.id]:null;
    const selectedIsValid=typeof selectedIndex==='number'&&Number.isInteger(selectedIndex)&&selectedIndex>=0&&selectedIndex<item.options.length;
    const isCorrect=selectedIsValid&&selectedIndex===item.correct_index;
+   const selectedAnswer=selectedIsValid?item.options[selectedIndex as number]:null;
    return {
     question_id:item.id,prompt:item.prompt,options:item.options,
     selected_answer_index:selectedIndex,
-    selected_answer:selectedIsValid?item.options[selectedIndex]:null,
+    selected_answer:selectedAnswer,
     correct_answer_index:item.correct_index,
     correct_answer:item.options[item.correct_index],
     is_correct:isCorrect,unanswered:!hasAnswer
